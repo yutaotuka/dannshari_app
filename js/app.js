@@ -53,7 +53,7 @@
 
   function statusPill(it) {
     const text = STATUS_LABEL[it.status] + (it.status === 'discard' && it.method ? `・${it.method}` : '');
-    return `<span class="pill pill-${it.status}">${esc(text)}</span>`;
+    return `<span class="tape tape-sm tape-${it.status}">${esc(text)}</span>`;
   }
 
   function holdNote(it) {
@@ -64,17 +64,18 @@
       : `<span class="hold-note">あと${d}日で再判定</span>`;
   }
 
-  function card(it) {
+  function row(it) {
     return `
-      <button class="card" type="button" data-action="open" data-id="${esc(it.id)}">
-        ${thumb(it)}
-        <span class="card-body">
-          <span class="tag-no">${tagNo(it.no)}${it.sample ? '<span class="sample-mark">サンプル</span>' : ''}</span>
-          <span class="card-name">${esc(it.name)}</span>
-          <span class="card-meta">${esc(catOf(it.category).label)}</span>
-          <span class="card-foot">${statusPill(it)}${holdNote(it)}</span>
-        </span>
-      </button>`;
+      <li>
+        <button class="row" type="button" data-action="open" data-id="${esc(it.id)}">
+          ${thumb(it)}
+          <span class="row-main">
+            <span class="row-name">${esc(it.name)}${it.sample ? '<span class="sample-mark">サンプル</span>' : ''}</span>
+            <span class="row-meta">${esc(catOf(it.category).label)}／${fmtDate(it.updatedAt)}</span>
+          </span>
+          <span class="row-side">${statusPill(it)}${holdNote(it)}</span>
+        </button>
+      </li>`;
   }
 
   function sampleBanner() {
@@ -95,11 +96,24 @@
   /* =========================================================
    * ホーム
    * ========================================================= */
+  const BOX_LABEL = { keep: '残す', hold: '保留', discard: '手放した' };
+
   function viewHome() {
     const c = counts();
     const due = items.filter(isDue);
-    const recent = [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 4);
-    const rate = c.total ? Math.round(c.discard / c.total * 100) : 0;
+    const recent = [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5);
+
+    const box = s => {
+      const list = items.filter(it => it.status === s).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      const names = list.slice(0, 3).map(it => esc(it.name)).join('、');
+      const more = list.length > 3 ? `ほか${list.length - 3}点` : '';
+      return `
+        <button class="box box-${s}" type="button" data-action="box" data-s="${s}" aria-label="${BOX_LABEL[s]}の箱：${list.length}点。記録を見る">
+          <span class="tape tape-${s} box-tape">${BOX_LABEL[s]}</span>
+          <span class="box-count">${list.length}<small>点</small></span>
+          <span class="box-contents">${list.length ? `中身：${names}${more ? `　${more}` : ''}` : 'まだ空です'}</span>
+        </button>`;
+    };
 
     const catRows = CATEGORIES.map(cat => {
       const list = items.filter(it => it.category === cat.id);
@@ -107,63 +121,49 @@
       const w = n => (cc.total ? (n / cc.total * 100).toFixed(1) : 0);
       return `
         <li class="cat-row ${cc.total ? '' : 'is-empty'}">
-          <span class="cat-mark" aria-hidden="true">${esc(cat.mark)}</span>
-          <div class="cat-body">
-            <div class="cat-line">
-              <span class="cat-name">${esc(cat.label)}</span>
-              <span class="cat-num">${cc.total
-                ? `手放した <b>${cc.discard}</b>・保留 <b>${cc.hold}</b>・残す <b>${cc.keep}</b>`
-                : 'まだ判定していません'}</span>
-            </div>
-            <div class="bar" role="img" aria-label="${esc(cat.label)}：判定${cc.total}件のうち手放した${cc.discard}件、保留${cc.hold}件、残す${cc.keep}件">
-              <span class="seg seg-discard" style="width:${w(cc.discard)}%"></span>
-              <span class="seg seg-hold" style="width:${w(cc.hold)}%"></span>
-              <span class="seg seg-keep" style="width:${w(cc.keep)}%"></span>
-            </div>
-          </div>
+          <span class="cat-name">${esc(cat.label)}</span>
+          <span class="bar" role="img" aria-label="${esc(cat.label)}：判定${cc.total}点のうち手放した${cc.discard}点、保留${cc.hold}点、残す${cc.keep}点">
+            <span class="seg seg-discard" style="width:${w(cc.discard)}%"></span>
+            <span class="seg seg-hold" style="width:${w(cc.hold)}%"></span>
+            <span class="seg seg-keep" style="width:${w(cc.keep)}%"></span>
+          </span>
+          <span class="cat-num">${cc.total
+            ? `手放した <b>${cc.discard}</b>／保留 <b>${cc.hold}</b>／残す <b>${cc.keep}</b>`
+            : 'まだありません'}</span>
         </li>`;
     }).join('');
 
     return `
       ${sampleBanner()}
       <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow">断捨離の判定アプリ</p>
-          <h1>迷ったら、<br>8つの質問で決める。</h1>
-          <p class="lead">答えるだけで「残す・保留・手放す」を判定します。写真つきで記録して、片付けの進み具合も見えるようにします。</p>
-          <button class="btn btn-primary btn-lg" type="button" data-action="new">判定をはじめる</button>
-        </div>
-        <div class="hero-stamps" aria-hidden="true">
-          <span class="stamp stamp-keep" style="--r:-14deg;--x:6px;--y:8px;--d:.05s">残す</span>
-          <span class="stamp stamp-hold" style="--r:9deg;--x:120px;--y:34px;--d:.25s">保留</span>
-          <span class="stamp stamp-discard" style="--r:-6deg;--x:48px;--y:118px;--d:.45s">手放す</span>
+        <h1 class="hero-title">これ、<br>いる？</h1>
+        <div class="hero-side">
+          <p class="lead">8つの質問に答えると、その物を「残す・保留・手放す」のどれにするか判定します。決めた物は写真つきで、3つの箱に仕分けて記録します。</p>
+          <button class="btn btn-primary btn-lg" type="button" data-action="new">1つ判定する</button>
         </div>
       </section>
 
-      <section class="stats" aria-label="これまでの集計">
-        <div class="stat"><span class="stat-label">判定した物</span><span class="stat-num">${c.total}</span><span class="stat-sub">件</span></div>
-        <div class="stat s-discard"><span class="stat-label">手放した</span><span class="stat-num">${c.discard}</span><span class="stat-sub">全体の${rate}%</span></div>
-        <div class="stat s-hold"><span class="stat-label">保留中</span><span class="stat-num">${c.hold}</span><span class="stat-sub">${due.length ? `${due.length}件が再判定の時期` : '期限前'}</span></div>
-        <div class="stat s-keep"><span class="stat-label">残す</span><span class="stat-num">${c.keep}</span><span class="stat-sub">件</span></div>
+      <section class="boxes" aria-label="仕分けの箱">
+        ${box('keep')}${box('hold')}${box('discard')}
       </section>
 
       ${due.length ? `
-      <section class="panel panel-due">
-        <div class="panel-head"><h2>再判定の時期です</h2><span class="count">${due.length}件</span></div>
-        <p class="muted small">保留にした期限が来ました。いまの気持ちで、もう一度判定してみましょう。</p>
+      <section class="due">
+        <div class="due-head"><h2>再判定の時期です</h2><span class="due-count">${due.length}点</span></div>
+        <p class="small">保留にした期限が来ました。いまの気持ちで、もう一度判定してみましょう。</p>
         <ul class="due-list">
           ${due.map(it => `
             <li>
               ${thumb(it, 'thumb thumb-sm')}
-              <div class="due-body"><span class="card-name">${esc(it.name)}</span><span class="small muted">${fmtDate(it.updatedAt)}に保留・${esc(catOf(it.category).label)}</span></div>
+              <span class="row-main"><span class="row-name">${esc(it.name)}</span><span class="row-meta">${fmtDate(it.updatedAt)}に保留</span></span>
               <button class="btn btn-sm btn-primary" type="button" data-action="rejudge" data-id="${esc(it.id)}">再判定する</button>
             </li>`).join('')}
         </ul>
       </section>` : ''}
 
-      <section class="panel">
-        <div class="panel-head">
-          <h2>カテゴリ別の進み具合</h2>
+      <section class="section">
+        <div class="section-head">
+          <h2 class="section-title">カテゴリ別</h2>
           <div class="legend" aria-hidden="true">
             <span><i class="dot seg-discard"></i>手放した</span><span><i class="dot seg-hold"></i>保留</span><span><i class="dot seg-keep"></i>残す</span>
           </div>
@@ -171,10 +171,10 @@
         <ul class="cat-progress">${catRows}</ul>
       </section>
 
-      <section class="panel">
-        <div class="panel-head"><h2>最近の記録</h2><a class="link" href="#records">すべて見る</a></div>
-        ${recent.length ? `<div class="card-grid">${recent.map(card).join('')}</div>`
-          : `<p class="empty">まだ記録がありません。「判定をはじめる」から1つ目を判定してみましょう。</p>`}
+      <section class="section">
+        <div class="section-head"><h2 class="section-title">最近の記録</h2><a class="link" href="#records">すべて見る</a></div>
+        ${recent.length ? `<ul class="rows">${recent.map(row).join('')}</ul>`
+          : `<p class="empty">まだ記録がありません。「1つ判定する」から始めましょう。</p>`}
       </section>`;
   }
 
@@ -250,9 +250,9 @@
       <section class="judge">
         <div class="q-progress">
           <button class="btn btn-ghost btn-sm" type="button" data-action="back">← 戻る</button>
-          <span class="mono">Q${J.step} / ${QUESTIONS.length}</span>
+          <span class="q-count">質問 <b>${J.step}</b> / ${QUESTIONS.length}</span>
         </div>
-        <div class="progress" aria-hidden="true"><span style="width:${((J.step - 1) / QUESTIONS.length * 100).toFixed(1)}%"></span></div>
+        <ol class="steps" aria-hidden="true">${QUESTIONS.map((_, i) => `<li class="${i < J.step - 1 ? 'done' : i === J.step - 1 ? 'now' : ''}"></li>`).join('')}</ol>
         <p class="q-item">判定中：<b>${esc(J.name)}</b></p>
         <h1 class="q-text" tabindex="-1">${esc(q.q)}</h1>
         ${q.hint ? `<p class="q-hint">${esc(q.hint)}</p>` : ''}
@@ -281,14 +281,16 @@
 
     return `
       <section class="judge result">
-        <div class="result-card">
-          <div class="result-photo">${thumb({ photo: J.photo, category: J.category }, 'thumb thumb-xl')}</div>
+        <div class="result-head">
+          <div class="result-visual">
+            ${thumb({ photo: J.photo, category: J.category }, 'thumb thumb-xl')}
+            <span class="tape tape-${r.verdict} tape-verdict${anim}" role="img" aria-label="判定：${V.label}">${V.label}</span>
+          </div>
           <div class="result-main">
-            <p class="mono small muted">判定結果</p>
+            <p class="small muted">判定結果</p>
             <h1 class="result-name" tabindex="-1">${esc(J.name)}</h1>
             <p class="result-desc">${esc(V.desc)}</p>
           </div>
-          <div class="result-stamp"><span class="stamp stamp-${r.verdict}${anim}" style="--r:-12deg" role="img" aria-label="判定：${V.label}">${V.label}</span></div>
         </div>
 
         <div class="scale">
@@ -393,7 +395,7 @@
     const tabs = [['all', 'すべて', c.total], ['keep', '残す', c.keep], ['hold', '保留', c.hold], ['discard', '手放した', c.discard]];
     return `
       <section class="records">
-        <div class="page-head"><h1 tabindex="-1">記録</h1><span class="mono muted">${items.length}件</span></div>
+        <div class="page-head"><h1 tabindex="-1">記録</h1><span class="muted">${items.length}点</span></div>
         ${sampleBanner()}
         <div class="filters">
           <div class="seg-control" role="group" aria-label="状態で絞り込む">
@@ -423,7 +425,7 @@
       .filter(it => !q || (it.name + ' ' + (it.memo || '')).toLowerCase().includes(q))
       .sort((a, b) => (isDue(b) - isDue(a)) || b.updatedAt.localeCompare(a.updatedAt));
     box.innerHTML = list.length
-      ? `<div class="card-grid">${list.map(card).join('')}</div>`
+      ? `<ul class="rows">${list.map(row).join('')}</ul>`
       : `<p class="empty">${items.length ? '条件に合う記録がありません。絞り込みを変えてみてください。' : 'まだ記録がありません。'}</p>`;
   }
 
@@ -526,9 +528,9 @@
           <h2>判定のしくみ</h2>
           <p>8つの質問の答えごとに点数があり、合計点で判定します。合計は${SCORE_MIN}〜${signed(SCORE_MAX)}点です。</p>
           <ul class="rule-list">
-            <li><span class="pill pill-keep">残す</span>${signed(SCORE_KEEP)}点以上</li>
-            <li><span class="pill pill-hold">保留</span>${SCORE_DISCARD + 1}〜${signed(SCORE_KEEP - 1)}点</li>
-            <li><span class="pill pill-discard">手放す</span>${SCORE_DISCARD}点以下</li>
+            <li><span class="tape tape-sm tape-keep">残す</span>${signed(SCORE_KEEP)}点以上</li>
+            <li><span class="tape tape-sm tape-hold">保留</span>${SCORE_DISCARD + 1}〜${signed(SCORE_KEEP - 1)}点</li>
+            <li><span class="tape tape-sm tape-discard">手放す</span>${SCORE_DISCARD}点以下</li>
           </ul>
           <p class="small muted">「強い思い出がある」と答えた物は「手放す」にせず保留にします。「壊れている・サイズが合わない」物は「残す」にせず保留にします。</p>
           <details class="detail-answers">
@@ -666,6 +668,7 @@
   /* ---------- クリック操作 ---------- */
   const ACTIONS = {
     new: () => { newJudge(); go('judge'); },
+    box: t => { recFilter.status = t.dataset.s; recFilter.category = 'all'; recFilter.q = ''; go('records'); },
     back: () => { J.step -= 1; render(J.step === 0 ? 'h1' : '.q-text'); },
     answer: t => choose(Number(t.dataset.i)),
     'photo-remove': () => { J.photo = null; render(); },
