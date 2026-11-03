@@ -1,0 +1,68 @@
+/* =========================================================
+ * store.js — IndexedDB への保存（使えない環境ではメモリに退避）
+ * ========================================================= */
+
+const Store = (() => {
+  const DB_NAME = 'irunai-db';
+  const STORE = 'items';
+  let dbPromise = null;
+  let useMemory = false;
+  const memory = new Map();
+
+  function open() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      // ブラウザによっては open が応答しないことがあるので、3秒で諦めてメモリ保存に切り替える
+      const timer = setTimeout(() => reject(new Error('IndexedDB の応答がありません')), 3000);
+      const done = fn => v => { clearTimeout(timer); fn(v); };
+      try {
+        if (!window.indexedDB) throw new Error('IndexedDB が使えません');
+        const req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: 'id' });
+        req.onsuccess = done(() => resolve(req.result));
+        req.onerror = done(() => reject(req.error));
+        req.onblocked = done(() => reject(new Error('IndexedDB がほかのタブで使用中です')));
+      } catch (e) {
+        clearTimeout(timer);
+        reject(e);
+      }
+    });
+    return dbPromise;
+  }
+
+  async function run(mode, fn) {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, mode);
+      const req = fn(tx.objectStore(STORE));
+      tx.oncomplete = () => resolve(req ? req.result : undefined);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  }
+
+  async function safe(idbFn, memFn) {
+    if (useMemory) return memFn();
+    try {
+      return await idbFn();
+    } catch (e) {
+      console.warn('[Store] IndexedDB が使えないため、メモリに保存します', e);
+      useMemory = true;
+      return memFn();
+    }
+  }
+
+  return {
+    all: () => safe(() => run('readonly', s => s.getAll()), () => [...memory.values()]),
+    put: item => safe(() => run('readwrite', s => s.put(item)), () => { memory.set(item.id, item); }),
+    remove: id => safe(() => run('readwrite', s => s.delete(id)), () => { memory.delete(id); }),
+    clear: () => safe(() => run('readwrite', s => s.clear()), () => { memory.clear(); }),
+    get persistent() { return !useMemory; },
+  };
+})();
+
+/** localStorage の小さな設定値（失敗しても動くように） */
+const Prefs = {
+  get(key) { try { return localStorage.getItem('irunai:' + key); } catch (e) { return null; } },
+  set(key, val) { try { localStorage.setItem('irunai:' + key, val); } catch (e) { /* 何もしない */ } },
+};
