@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>いる・いらない仕分け帳</title>
+<meta name="description" content="8つの質問に答えるだけで「残す・保留・手放す」を判定する断捨離アプリ。写真つきの記録、カテゴリ別の進み具合、保留の再判定リマインドつき。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=IBM+Plex+Mono:wght@500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="#home" aria-label="いる・いらない仕分け帳 ホーム">
+    <span class="brand-mark" aria-hidden="true">仕</span>
+    <span class="brand-name">いる・いらない<br>仕分け帳</span>
+  </a>
+  <nav class="tabs" aria-label="メインメニュー">
+    <a href="#home" data-tab="home">ホーム<span class="badge" id="dueBadge" hidden></span></a>
+    <a href="#judge" data-tab="judge">判定する</a>
+    <a href="#records" data-tab="records">記録</a>
+    <a href="#settings" data-tab="settings">設定</a>
+  </nav>
+</header>
+
+<main id="app" tabindex="-1"></main>
+
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
